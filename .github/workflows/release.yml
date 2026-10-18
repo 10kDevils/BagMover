@@ -1,10 +1,15 @@
 name: Release
 
-# Push a tag such as v1.3.1 and this builds the addon zip and attaches it to a GitHub Release,
-# which is what WowUp and other addon managers download.
+# Builds the addon zip and publishes it as a GitHub Release (what WowUp downloads).
+# Runs when the "## Version:" line in BagMover.toc changes on main: it tags that commit
+# v<version> and releases it. Pushing a v* tag yourself works too, and so does
+# "Run workflow" on the Actions tab.
 on:
   push:
+    branches: [main]
+    paths: ["BagMover.toc", ".github/workflows/release.yml"]
     tags: ["v*"]
+  workflow_dispatch:
 
 jobs:
   release:
@@ -15,6 +20,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Tag the version from the .toc
+        if: github.ref_type != 'tag'
+        id: tag
+        run: |
+          v=$(sed -n 's/^## Version: *//p' BagMover.toc | tr -d '\r' | head -1)
+          if [ -z "$v" ]; then echo "No version in BagMover.toc"; exit 1; fi
+          if git rev-parse "v$v" >/dev/null 2>&1; then
+            echo "v$v already released"; echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "v$v" -m "v$v"
+            git push origin "v$v"
+          fi
+
       - uses: BigWigsMods/packager@v2
+        if: steps.tag.outputs.skip != 'true'
         env:
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
