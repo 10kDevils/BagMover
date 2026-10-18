@@ -1,8 +1,0 @@
-package-as: BagMover
-enable-nolib-creation: no
-ignore:
-  - README.md
-  - .github
-manual-changelog:
-  filename: CHANGELOG.md
-  markup-type: markdown

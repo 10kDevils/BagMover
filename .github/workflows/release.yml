@@ -1,14 +1,12 @@
 name: Release
 
 # Builds the addon zip and publishes it as a GitHub Release (what WowUp downloads).
-# Runs when the "## Version:" line in BagMover.toc changes on main: it tags that commit
-# v<version> and releases it. Pushing a v* tag yourself works too, and so does
-# "Run workflow" on the Actions tab.
+# Runs when the "## Version:" line in BagMover.toc changes on main, and releases that version
+# as v<version> if it hasn't been released yet. "Run workflow" on the Actions tab does the same.
 on:
   push:
     branches: [main]
     paths: ["BagMover.toc", ".github/workflows/release.yml"]
-    tags: ["v*"]
   workflow_dispatch:
 
 jobs:
@@ -16,27 +14,30 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Tag the version from the .toc
-        if: github.ref_type != 'tag'
-        id: tag
+      - name: Read the version
+        id: ver
         run: |
           v=$(sed -n 's/^## Version: *//p' BagMover.toc | tr -d '\r' | head -1)
           if [ -z "$v" ]; then echo "No version in BagMover.toc"; exit 1; fi
-          if git rev-parse "v$v" >/dev/null 2>&1; then
-            echo "v$v already released"; echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "v$v" -m "v$v"
-            git push origin "v$v"
-          fi
+          echo "v=$v" >> "$GITHUB_OUTPUT"
+          if gh release view "v$v" >/dev/null 2>&1; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
 
-      - uses: BigWigsMods/packager@v2
-        if: steps.tag.outputs.skip != 'true'
-        env:
-          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the zip
+        if: steps.ver.outputs.skip != 'true'
+        run: |
+          mkdir -p build/BagMover
+          rsync -a --exclude '.git*' --exclude '.github' --exclude '.pkgmeta' --exclude 'build' ./ build/BagMover/
+          cd build && zip -qr "BagMover-v${{ steps.ver.outputs.v }}.zip" BagMover
+
+      - name: Publish the release
+        if: steps.ver.outputs.skip != 'true'
+        run: |
+          v=${{ steps.ver.outputs.v }}
+          notes=$(awk -v v="$v" '$0 ~ "^#+ "v"( |$)" {f=1; next} f && /^#+ [0-9]/ {exit} f' CHANGELOG.md 2>/dev/null)
+          [ -n "$notes" ] || notes="Version $v"
+          gh release create "v$v" "build/BagMover-v$v.zip" --title "v$v" --notes "$notes" --target "$GITHUB_SHA"
