@@ -15,3 +15,7 @@ Click and drag any bag window by its background or title.
 
 - `/bagmover reset` (or `/bm reset`): forget all saved positions
 - `/bagmover lock`: lock or unlock dragging
+
+## License
+
+MIT. See [LICENSE](LICENSE).

@@ -1,8 +1,8 @@
-## Interface: 11507, 11508, 20504, 30403, 40402, 50500, 110002
+## Interface: 11507, 11508, 16001, 20504, 30403, 40402, 50500, 110002
 ## Title: BagMover
 ## Notes: Drag your bag windows anywhere on the screen. Positions are remembered.
-## Author: You
-## Version: 1.0.0
+## Author: 10k
+## Version: 1.0.1
 ## SavedVariables: BagMoverDB
 
 BagMover.lua
